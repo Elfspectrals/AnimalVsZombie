@@ -7,6 +7,7 @@ class Scene1 extends Phaser.Scene {
         this.path = null;
         this.graphics = null;
         this.currentPlant = null;
+        this.canShootAgain = true; // Moved canShootAgain here
     }
 
     preload() {
@@ -14,7 +15,6 @@ class Scene1 extends Phaser.Scene {
         this.load.image('sunFlower', './assets/placeholder2.png');
         this.load.image('enemy', './assets/placeholder.png');
         this.load.image('projectile', './assets/fireball.png');
-        
     }
     
     create() {
@@ -34,12 +34,14 @@ class Scene1 extends Phaser.Scene {
             let plant = this.add.image(positionX, positionY, typePlant).setInteractive();
             plant.setScale(0.1);
             plant.currentSlot = null; // Keep track of the slot where the plant is placed
+            this.plants.push(plant); // Add plant to the plants array
     
             plant.on('pointerdown', () => {
                 let newPlant = this.add.image(plant.x, plant.y, typePlant).setInteractive();
                 newPlant.setScale(0.1);
                 newPlant.currentSlot = null; // Keep track of the slot where the new plant is placed
                 this.input.setDraggable(newPlant);
+                this.plants.push(newPlant); // Add newPlant to the plants array
     
                 newPlant.on('dragstart', () => {
                     this.currentPlant = newPlant;
@@ -59,7 +61,11 @@ class Scene1 extends Phaser.Scene {
                     if (this.isOnSlot(newPlant)) {
                         console.log('Plant placed on a valid slot');
                     } else {
-                        // Destroy the new plant if not placed on a valid slot
+                        // Remove newPlant from the plants array if not placed on a valid slot
+                        const index = this.plants.indexOf(newPlant);
+                        if (index > -1) {
+                            this.plants.splice(index, 1);
+                        }
                         newPlant.destroy();
                     }
                     this.currentPlant = null;
@@ -71,7 +77,7 @@ class Scene1 extends Phaser.Scene {
         this.createPlant(900, 50, 'sunFlower');
     
         // Step 2: Create an initial enemy for demonstration
-        this.createEnemy(1200, 150); // Adjust the Y position based on your game's slot positions
+        this.createEnemy(); // Adjust the Y position based on your game's slot positions
     }
     
     isOnSlot(plant) {
@@ -95,18 +101,32 @@ class Scene1 extends Phaser.Scene {
             let randomSlotIndex = Phaser.Math.Between(0, this.plantSlots.length - 1);
             let targetSlot = this.plantSlots[randomSlotIndex];
     
-            // Étape 2: Créer l'ennemi à la hauteur du slot sélectionné
-            let enemy = this.add.image(1200, targetSlot.y, 'enemy').setInteractive(); // 1200 est un exemple, ajustez selon la largeur de votre scène
+            let enemy = this.add.image(1200, targetSlot.y, 'enemy').setInteractive(); 
             enemy.setScale(0.1);
-            enemy.flipX= true;
+            enemy.flipX = true;
             this.enemies.push(enemy);
         }
     }
     
+    shootFireball() {
+        if (this.canShootAgain) {
+            console.log("Fireball is shooting");
+            this.canShootAgain = false; // Prevent further shooting
+            setTimeout(() => {
+                this.canShootAgain = true; // Allow shooting again after 1 second
+            }, 1000);
+        }
+    }
+
     update() {
         this.enemies.forEach(enemy => {
             enemy.x -= 1;
+
+            this.plants.forEach(plant => {
+                if (plant.y === enemy.y && plant.texture.key === 'peaShooter' && this.canShootAgain) {
+                    this.shootFireball();
+                }
+            });
         });
-    
     }
 }
