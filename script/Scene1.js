@@ -7,7 +7,8 @@ class Scene1 extends Phaser.Scene {
         this.path = null;
         this.graphics = null;
         this.currentPlant = null;
-        this.canShootAgain = true; // Moved canShootAgain here
+        this.canShootAgain = true;
+        this.fireballs = []; // Initialize fireballs array
     }
 
     preload() {
@@ -111,13 +112,13 @@ class Scene1 extends Phaser.Scene {
     shootFireball(x, y) {
         if (this.canShootAgain) {
             console.log("Fireball is shooting");
-            // Spawn the fireball 10px to the right of the pea shooter
             let fireball = this.add.image(x + 50, y, 'projectile').setInteractive();
             fireball.setScale(0.1);
-            this.canShootAgain = false; // Prevent further shooting
+            this.fireballs.push(fireball); // Add fireball to the fireballs array
+            this.canShootAgain = false;
             setTimeout(() => {
-                this.canShootAgain = true; // Allow shooting again after 1 second
-            }, 1000);
+                this.canShootAgain = true;
+            }, 3000);
         }
     }
 
@@ -130,6 +131,11 @@ class Scene1 extends Phaser.Scene {
                     this.shootFireball(plant.x, plant.y);
                 }
             });
+        });
+        this.fireballs.forEach(fireball => {
+            fireball.x += 3.5; // Corrected to move the fireball
+            console.log("Fireball is moving");
+            // Optionally, remove fireball from array if it goes off-screen
         });
     }
 }
