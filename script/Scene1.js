@@ -108,9 +108,12 @@ class Scene1 extends Phaser.Scene {
         }
     }
     
-    shootFireball() {
+    shootFireball(x, y) {
         if (this.canShootAgain) {
             console.log("Fireball is shooting");
+            // Spawn the fireball 10px to the right of the pea shooter
+            let fireball = this.add.image(x + 50, y, 'projectile').setInteractive();
+            fireball.setScale(0.1);
             this.canShootAgain = false; // Prevent further shooting
             setTimeout(() => {
                 this.canShootAgain = true; // Allow shooting again after 1 second
@@ -124,7 +127,7 @@ class Scene1 extends Phaser.Scene {
 
             this.plants.forEach(plant => {
                 if (plant.y === enemy.y && plant.texture.key === 'peaShooter' && this.canShootAgain) {
-                    this.shootFireball();
+                    this.shootFireball(plant.x, plant.y);
                 }
             });
         });
