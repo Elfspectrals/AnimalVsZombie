@@ -7,8 +7,7 @@ class Scene1 extends Phaser.Scene {
         this.path = null;
         this.graphics = null;
         this.currentPlant = null;
-        this.canShootAgain = true;
-        this.fireballs = []; // Initialize fireballs array
+        this.fireballs = []; 
     }
 
     preload() {
@@ -25,7 +24,7 @@ class Scene1 extends Phaser.Scene {
             for (let i = 0; i < 5; i++) {
                 let slot = this.add.rectangle(positionX, positionY + i * gapBetweenSlot, slotSize, slotSize, colorSlot);
                 slot.setStrokeStyle(2, 0xffffff);
-                slot.plant = null; // Add a plant property to track the plant in the slot
+                slot.plant = null; 
                 this.plantSlots.push(slot);
             }
         };
@@ -34,22 +33,26 @@ class Scene1 extends Phaser.Scene {
         this.createPlant = (positionX, positionY, typePlant) => {
             let plant = this.add.image(positionX, positionY, typePlant).setInteractive();
             plant.setScale(0.1);
-            plant.currentSlot = null; // Keep track of the slot where the plant is placed
-            this.plants.push(plant); // Add plant to the plants array
+            plant.currentSlot = null; 
+            plant.canShoot = false;
+            plant.lastShotTime = 0;  // Add lastShotTime property
+            this.plants.push(plant);
     
             plant.on('pointerdown', () => {
                 let newPlant = this.add.image(plant.x, plant.y, typePlant).setInteractive();
                 newPlant.setScale(0.1);
-                newPlant.currentSlot = null; // Keep track of the slot where the new plant is placed
+                newPlant.currentSlot = null;  
+                newPlant.canShoot = false;
+                newPlant.lastShotTime = 0;  // Initialize lastShotTime property
                 this.input.setDraggable(newPlant);
-                this.plants.push(newPlant); // Add newPlant to the plants array
+                this.plants.push(newPlant); 
     
                 newPlant.on('dragstart', () => {
                     this.currentPlant = newPlant;
-                    // If the plant was in a slot, free the slot
                     if (newPlant.currentSlot) {
                         newPlant.currentSlot.plant = null;
                         newPlant.currentSlot = null;
+                        newPlant.canShoot = false; 
                     }
                 });
     
@@ -62,7 +65,6 @@ class Scene1 extends Phaser.Scene {
                     if (this.isOnSlot(newPlant)) {
                         console.log('Plant placed on a valid slot');
                     } else {
-                        // Remove newPlant from the plants array if not placed on a valid slot
                         const index = this.plants.indexOf(newPlant);
                         if (index > -1) {
                             this.plants.splice(index, 1);
@@ -77,19 +79,19 @@ class Scene1 extends Phaser.Scene {
         this.createPlant(800, 50, 'peaShooter');
         this.createPlant(900, 50, 'sunFlower');
     
-        // Step 2: Create an initial enemy for demonstration
-        this.createEnemy(); // Adjust the Y position based on your game's slot positions
+        this.createEnemy(); 
     }
     
     isOnSlot(plant) {
         let placed = false;
         this.plantSlots.forEach(slot => {
             if (Phaser.Geom.Rectangle.Overlaps(slot.getBounds(), plant.getBounds())) {
-                if (!slot.plant) { // Check if the slot is empty
-                    slot.plant = plant; // Assign the plant to the slot
-                    plant.currentSlot = slot; // Mark the slot as occupied by the plant
-                    plant.x = slot.x; // Adjust the plant's position to align with the slot
+                if (!slot.plant) { 
+                    slot.plant = plant; 
+                    plant.currentSlot = slot;
+                    plant.x = slot.x;  
                     plant.y = slot.y;
+                    plant.canShoot = true;
                     placed = true;
                 }
             }
@@ -102,33 +104,33 @@ class Scene1 extends Phaser.Scene {
             let randomSlotIndex = Phaser.Math.Between(0, this.plantSlots.length - 1);
             let targetSlot = this.plantSlots[randomSlotIndex];
     
-            let enemy = this.add.image(1200, targetSlot.y, 'enemy').setInteractive(); 
-            enemy.setScale(0.1);
-            enemy.flipX = true;
+            let enemy = new Enemy(this, 1200, targetSlot.y, 'enemy', 1, 100, 10);
             this.enemies.push(enemy);
         }
     }
     
     shootFireball(x, y) {
-        if (this.canShootAgain) {
-            console.log("Fireball is shooting");
-            let fireball = this.add.image(x + 50, y, 'projectile').setInteractive();
-            fireball.setScale(0.1);
-            this.fireballs.push(fireball); // Add fireball to the fireballs array
-            this.canShootAgain = false;
-            setTimeout(() => {
-                this.canShootAgain = true;
-            }, 3000);
-        }
+        console.log("Fireball is shooting");
+        let fireball = this.add.image(x + 50, y, 'projectile').setInteractive();
+        fireball.setScale(0.1);
+        this.fireballs.push(fireball);
     }
 
     update() {
+        const currentTime = this.time.now;
+
         this.enemies.forEach(enemy => {
-            enemy.x -= 1;
-    
+            enemy.update();
+
             this.plants.forEach(plant => {
-                if (plant.y === enemy.y && plant.texture.key === 'peaShooter' && this.canShootAgain) {
+                if (
+                    plant.y === enemy.sprite.y && 
+                    plant.texture.key === 'peaShooter' && 
+                    plant.canShoot && 
+                    currentTime > plant.lastShotTime + 3000  // Check plant's cooldown
+                ) {
                     this.shootFireball(plant.x, plant.y);
+                    plant.lastShotTime = currentTime;  // Update lastShotTime
                 }
             });
         });
@@ -137,28 +139,45 @@ class Scene1 extends Phaser.Scene {
             fireball.x += 3.5;
             console.log("Fireball is moving");
     
-            // Check for collision with each enemy
             this.enemies.forEach((enemy, enemyIndex) => {
-                if (Phaser.Geom.Intersects.RectangleToRectangle(fireball.getBounds(), enemy.getBounds())) {
+                if (Phaser.Geom.Intersects.RectangleToRectangle(fireball.getBounds(), enemy.sprite.getBounds())) {
                     console.log("Fireball hit an enemy!");
     
-                    // Optionally, handle collision effect
-                    // e.g., destroy fireball and/or enemy, decrease enemy health, etc.
                     fireball.destroy();
                     this.fireballs.splice(fireballIndex, 1);
     
-                    // Example of destroying the enemy (optional)
-                    enemy.destroy();
-                    this.enemies.splice(enemyIndex, 1);
+                    enemy.takeDamage(50);  // Adjust the damage value as needed
+                    if (enemy.health <= 0) {
+                        enemy.sprite.destroy();
+                        this.enemies.splice(enemyIndex, 1);
+                    }
                 }
             });
     
-            // Optionally, remove fireball if it goes off-screen
             if (fireball.x > this.sys.canvas.width) {
                 fireball.destroy();
                 this.fireballs.splice(fireballIndex, 1);
             }
         });
     }
-    
+}
+
+class Enemy {
+    constructor(scene, x, y, texture, speed, health, damage) {
+        this.scene = scene;
+        this.sprite = scene.add.image(x, y, texture).setInteractive();
+        this.sprite.setScale(0.1);
+        this.sprite.flipX = true;
+        this.speed = speed;
+        this.health = health;
+        this.damage = damage;
+    }
+
+    update() {
+        this.sprite.x -= this.speed;
+    }
+
+    takeDamage(amount) {
+        this.health -= amount;
+    }
 }
