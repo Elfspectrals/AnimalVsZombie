@@ -125,17 +125,40 @@ class Scene1 extends Phaser.Scene {
     update() {
         this.enemies.forEach(enemy => {
             enemy.x -= 1;
-
+    
             this.plants.forEach(plant => {
                 if (plant.y === enemy.y && plant.texture.key === 'peaShooter' && this.canShootAgain) {
                     this.shootFireball(plant.x, plant.y);
                 }
             });
         });
-        this.fireballs.forEach(fireball => {
-            fireball.x += 3.5; // Corrected to move the fireball
+    
+        this.fireballs.forEach((fireball, fireballIndex) => {
+            fireball.x += 3.5;
             console.log("Fireball is moving");
-            // Optionally, remove fireball from array if it goes off-screen
+    
+            // Check for collision with each enemy
+            this.enemies.forEach((enemy, enemyIndex) => {
+                if (Phaser.Geom.Intersects.RectangleToRectangle(fireball.getBounds(), enemy.getBounds())) {
+                    console.log("Fireball hit an enemy!");
+    
+                    // Optionally, handle collision effect
+                    // e.g., destroy fireball and/or enemy, decrease enemy health, etc.
+                    fireball.destroy();
+                    this.fireballs.splice(fireballIndex, 1);
+    
+                    // Example of destroying the enemy (optional)
+                    enemy.destroy();
+                    this.enemies.splice(enemyIndex, 1);
+                }
+            });
+    
+            // Optionally, remove fireball if it goes off-screen
+            if (fireball.x > this.sys.canvas.width) {
+                fireball.destroy();
+                this.fireballs.splice(fireballIndex, 1);
+            }
         });
     }
+    
 }
