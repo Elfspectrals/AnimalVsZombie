@@ -144,7 +144,7 @@ class Scene1 extends Phaser.Scene {
         this.currentPlant = null;
         this.fireballs = [];
         this.waveManager = null; // Initialize wave manager
-        this.sunMoney = 100;  // Initialize sun money
+        this.sunMoney = 1000;  // Initialize sun money
     }
 
     preload() {
