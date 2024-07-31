@@ -52,13 +52,13 @@ class Plant {
 }
 
 class Enemy {
-    constructor(scene, x, y, type) {
+    constructor(scene, x, y, type, size = 0.1) {
         this.scene = scene;
         this.type = type;
 
         const enemyConfig = this.getEnemyConfig(type);
         this.sprite = scene.add.image(x, y, enemyConfig.texture).setInteractive();
-        this.sprite.setScale(0.1);
+        this.sprite.setScale(enemyConfig.size || size);
         this.sprite.flipX = true;
         this.speed = enemyConfig.speed;
         this.health = enemyConfig.health;
@@ -68,7 +68,7 @@ class Enemy {
     getEnemyConfig(type) {
         const enemyConfigs = {
             normal: { texture: 'enemy', speed: 1, health: 100, damage: 10 },
-            tank: { texture: 'enemyTank', speed: 0.5, health: 300, damage: 20 },
+            tank: { texture: 'enemyTank', speed: 0.5, health: 300, damage: 20, size: 0.4 },
             // Add more enemy types as needed
         };
         return enemyConfigs[type];
@@ -82,7 +82,6 @@ class Enemy {
         this.health -= amount;
     }
 }
-
 class WaveManager {
     constructor(scene) {
         this.scene = scene;
