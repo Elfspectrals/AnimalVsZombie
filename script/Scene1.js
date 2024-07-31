@@ -10,51 +10,68 @@ class Plant {
         this.currentSlot = null;
         this.canShoot = false;
         this.lastShotTime = 0;
-        
+
         this.sprite.on('pointerdown', () => {
-            let newPlant = new Plant(scene, this.sprite.x, this.sprite.y, typePlant, attackSpeed, cost, health);
-            scene.input.setDraggable(newPlant.sprite);
-            scene.plants.push(newPlant);
+            if (this.scene.sunMoney >= this.cost) {
+                let newPlant = new Plant(scene, this.sprite.x, this.sprite.y, typePlant, attackSpeed, cost, health);
+                scene.input.setDraggable(newPlant.sprite);
+                scene.plants.push(newPlant);
 
-            newPlant.sprite.on('dragstart', () => {
-                scene.currentPlant = newPlant;
-                if (newPlant.currentSlot) {
-                    newPlant.currentSlot.plant = null;
-                    newPlant.currentSlot = null;
-                    newPlant.canShoot = false;
-                }
-            });
-
-            newPlant.sprite.on('drag', (pointer, dragX, dragY) => {
-                newPlant.sprite.x = dragX;
-                newPlant.sprite.y = dragY;
-            });
-
-            newPlant.sprite.on('dragend', () => {
-                if (scene.isOnSlot(newPlant)) {
-                    console.log('Plant placed on a valid slot');
-                } else {
-                    const index = scene.plants.indexOf(newPlant);
-                    if (index > -1) {
-                        scene.plants.splice(index, 1);
+                newPlant.sprite.on('dragstart', () => {
+                    scene.currentPlant = newPlant;
+                    if (newPlant.currentSlot) {
+                        newPlant.currentSlot.plant = null;
+                        newPlant.currentSlot = null;
+                        newPlant.canShoot = false;
                     }
-                    newPlant.sprite.destroy();
-                }
-                scene.currentPlant = null;
-            });
+                });
+
+                newPlant.sprite.on('drag', (pointer, dragX, dragY) => {
+                    newPlant.sprite.x = dragX;
+                    newPlant.sprite.y = dragY;
+                });
+
+                newPlant.sprite.on('dragend', () => {
+                    if (scene.isOnSlot(newPlant)) {
+                        scene.updateSunMoney(-newPlant.cost);
+                        console.log('Plant placed on a valid slot');
+                    } else {
+                        const index = scene.plants.indexOf(newPlant);
+                        if (index > -1) {
+                            scene.plants.splice(index, 1);
+                        }
+                        newPlant.sprite.destroy();
+                    }
+                    scene.currentPlant = null;
+                });
+            } else {
+                console.log('Not enough sun money to place this plant');
+            }
         });
     }
 }
 
 class Enemy {
-    constructor(scene, x, y, texture, speed, health, damage) {
+    constructor(scene, x, y, type) {
         this.scene = scene;
-        this.sprite = scene.add.image(x, y, texture).setInteractive();
+        this.type = type;
+
+        const enemyConfig = this.getEnemyConfig(type);
+        this.sprite = scene.add.image(x, y, enemyConfig.texture).setInteractive();
         this.sprite.setScale(0.1);
         this.sprite.flipX = true;
-        this.speed = speed;
-        this.health = health;
-        this.damage = damage;
+        this.speed = enemyConfig.speed;
+        this.health = enemyConfig.health;
+        this.damage = enemyConfig.damage;
+    }
+
+    getEnemyConfig(type) {
+        const enemyConfigs = {
+            normal: { texture: 'enemy', speed: 1, health: 100, damage: 10 },
+            tank: { texture: 'enemyTank', speed: 0.5, health: 300, damage: 20 },
+            // Add more enemy types as needed
+        };
+        return enemyConfigs[type];
     }
 
     update() {
@@ -63,6 +80,57 @@ class Enemy {
 
     takeDamage(amount) {
         this.health -= amount;
+    }
+}
+
+class WaveManager {
+    constructor(scene) {
+        this.scene = scene;
+        this.currentWave = 0;
+        this.waves = [
+            // { type: 'normal', quantity: 2, interval: 2000 },
+            { type: 'tank', quantity: 1, interval: 1000 },
+            // Add more waves as needed
+        ];
+    }
+
+    startWave() {
+        if (this.currentWave < this.waves.length) {
+            let waveConfig = this.waves[this.currentWave];
+            let waveTitle = document.getElementById('WaveTitle');
+            waveTitle.innerHTML = `Wave ${this.currentWave + 1}`;
+            
+            this.spawnEnemies(waveConfig.type, waveConfig.quantity, waveConfig.interval);
+            this.currentWave++;
+        }
+    }
+
+    spawnEnemies(type, quantity, interval) {
+        let enemiesSpawned = 0;
+        let spawnInterval = this.scene.time.addEvent({
+            delay: interval,
+            callback: () => {
+                if (enemiesSpawned < quantity) {
+                    this.scene.createEnemy(type);
+                    enemiesSpawned++;
+                } else {
+                    spawnInterval.remove();
+                    // Check if all waves are completed and no enemies are left
+                    this.scene.time.addEvent({
+                        delay: 5000, // 5 seconds delay before the next wave
+                        callback: () => {
+                            if (this.currentWave >= this.waves.length && this.scene.enemies.length === 0) {
+                                alert("All waves completed!");
+                            } else {
+                                this.startWave();
+                            }
+                        }
+                    });
+                }
+            },
+            callbackScope: this,
+            loop: true
+        });
     }
 }
 
@@ -76,12 +144,15 @@ class Scene1 extends Phaser.Scene {
         this.graphics = null;
         this.currentPlant = null;
         this.fireballs = [];
+        this.waveManager = null; // Initialize wave manager
+        this.sunMoney = 100;  // Initialize sun money
     }
 
     preload() {
         this.load.image('peaShooter', './assets/placeholder.png');
         this.load.image('sunFlower', './assets/placeholder2.png');
         this.load.image('enemy', './assets/placeholder.png');
+        this.load.image('enemyTank', './assets/placeholderTank.png'); // Add tank enemy image
         this.load.image('projectile', './assets/fireball.png');
     }
 
@@ -112,13 +183,8 @@ class Scene1 extends Phaser.Scene {
         this.createPlant(800, 50, 'peaShooter');
         this.createPlant(900, 50, 'sunFlower');
 
-        // Create a timed event to spawn enemies every 2 seconds
-        this.time.addEvent({
-            delay: 2000,
-            callback: this.createEnemy,
-            callbackScope: this,
-            loop: true
-        });
+        this.waveManager = new WaveManager(this); // Initialize the wave manager
+        this.waveManager.startWave(); // Start the first wave
     }
 
     getPlantConfig(typePlant) {
@@ -127,6 +193,11 @@ class Scene1 extends Phaser.Scene {
             sunFlower: { attackSpeed: 0, cost: 50, health: 50 },
         };
         return plantConfigs[typePlant];
+    }
+
+    updateSunMoney(amount) {
+        this.sunMoney += amount;
+        document.getElementById('sunMoney').innerText = this.sunMoney;
     }
 
     isOnSlot(plant) {
@@ -146,12 +217,12 @@ class Scene1 extends Phaser.Scene {
         return placed;
     }
 
-    createEnemy() {
+    createEnemy(type) {
         if (this.plantSlots.length > 0) {
             let randomSlotIndex = Phaser.Math.Between(0, this.plantSlots.length - 1);
             let targetSlot = this.plantSlots[randomSlotIndex];
 
-            let enemy = new Enemy(this, 1200, targetSlot.y, 'enemy', 1, 100, 10);
+            let enemy = new Enemy(this, 1200, targetSlot.y, type);
             this.enemies.push(enemy);
         }
     }
@@ -166,7 +237,7 @@ class Scene1 extends Phaser.Scene {
     update() {
         const currentTime = this.time.now;
 
-        this.enemies.forEach(enemy => {
+        this.enemies.forEach((enemy, enemyIndex) => {
             enemy.update();
 
             this.plants.forEach(plant => {
@@ -180,13 +251,11 @@ class Scene1 extends Phaser.Scene {
                     plant.lastShotTime = currentTime;
                 }
             });
-        });
 
-        this.fireballs.forEach((fireball, fireballIndex) => {
-            fireball.x += 3.5;
-            console.log("Fireball is moving");
+            this.fireballs.forEach((fireball, fireballIndex) => {
+                fireball.x += 3.5;
+                console.log("Fireball is moving");
 
-            this.enemies.forEach((enemy, enemyIndex) => {
                 if (Phaser.Geom.Intersects.RectangleToRectangle(fireball.getBounds(), enemy.sprite.getBounds())) {
                     console.log("Fireball hit an enemy!");
 
@@ -197,14 +266,19 @@ class Scene1 extends Phaser.Scene {
                     if (enemy.health <= 0) {
                         enemy.sprite.destroy();
                         this.enemies.splice(enemyIndex, 1);
+
+                        // Check if all waves are completed and no enemies are left
+                        if (this.waveManager.currentWave >= this.waveManager.waves.length && this.enemies.length === 0) {
+                            alert("All waves completed!");
+                        }
                     }
                 }
-            });
 
-            if (fireball.x > this.sys.canvas.width) {
-                fireball.destroy();
-                this.fireballs.splice(fireballIndex, 1);
-            }
+                if (fireball.x > this.sys.canvas.width) {
+                    fireball.destroy();
+                    this.fireballs.splice(fireballIndex, 1);
+                }
+            });
         });
     }
 }
