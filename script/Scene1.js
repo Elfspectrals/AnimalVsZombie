@@ -13,6 +13,9 @@ class Plant {
 
         this.sprite.on('pointerdown', () => {
             if (this.scene.sunMoney >= this.cost) {
+                // Check if the plant can be bought
+                this.scene.updateSunMoney(-this.cost);
+
                 let newPlant = new Plant(scene, this.sprite.x, this.sprite.y, typePlant, attackSpeed, cost, health);
                 scene.input.setDraggable(newPlant.sprite);
                 scene.plants.push(newPlant);
@@ -33,7 +36,6 @@ class Plant {
 
                 newPlant.sprite.on('dragend', () => {
                     if (scene.isOnSlot(newPlant)) {
-                        scene.updateSunMoney(-newPlant.cost);
                         console.log('Plant placed on a valid slot');
                     } else {
                         const index = scene.plants.indexOf(newPlant);
@@ -44,6 +46,7 @@ class Plant {
                     }
                     scene.currentPlant = null;
                 });
+
             } else {
                 console.log('Not enough sun money to place this plant');
             }
@@ -98,7 +101,7 @@ class WaveManager {
             let waveConfig = this.waves[this.currentWave];
             let waveTitle = document.getElementById('WaveTitle');
             waveTitle.innerHTML = `Wave ${this.currentWave + 1}`;
-            
+
             this.spawnEnemies(waveConfig.type, waveConfig.quantity, waveConfig.interval);
             this.currentWave++;
         }
@@ -144,7 +147,7 @@ class Scene1 extends Phaser.Scene {
         this.currentPlant = null;
         this.fireballs = [];
         this.waveManager = null; // Initialize wave manager
-        this.sunMoney = 1000;  // Initialize sun money
+        this.sunMoney = 100;  // Initialize sun money
     }
 
     preload() {
